@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Frogger Game</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: sans-serif;
+      background-color: #7c7b7b;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    canvas {
+      background-color: #66bb6a;
+      border: 3px solid #fff;
+      margin-top: 20px;
+    }
+    h1 {
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <h1>🐸 Frogger</h1>
+  <p>Score: <span id="score">0</span> | High Score: <span id="highScore">0</span></p>
+  <canvas id="game" width="400" height="500"></canvas>
+
+  <script>
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const scoreEl = document.getElementById('score');
+    const highScoreEl = document.getElementById('highScore');
+
+    const tileSize = 50;
+    const rows = canvas.height / tileSize;
+    const cols = canvas.width / tileSize;
+
+    let frog = { x: 4, y: 9 };
+    let cars = [];
+    let logs = [];
+    let score = 0;
+    let highScore = localStorage.getItem('froggerHighScore') || 0;
+    let showGameOverOverlay = false;
+    let gameResetTimeout = null;
+
+    highScoreEl.textContent = highScore;
+
+    function drawBoard() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (let r = 0; r < rows; r++) {
+        ctx.fillStyle = r < 2 ? '#42a5f5' : (r < 8 ? '#8d6e63' : '#66bb6a');
+        ctx.fillRect(0, r * tileSize, canvas.width, tileSize);
+      }
+      ctx.fillStyle = 'gold';
+      ctx.fillRect(0, 0, canvas.width, tileSize);
+    }
+
+    function drawFrog() {
+      ctx.fillStyle = 'lime';
+      ctx.beginPath();
+      ctx.arc(
+        frog.x * tileSize + tileSize / 2,
+        frog.y * tileSize + tileSize / 2,
+        tileSize / 2.5,
+        0,
+        Math.PI * 2
+      );
+      ctx.fill();
+    }
+
+    function spawnCars() {
+      cars = [];
+      for (let r = 2; r < 8; r++) {
+        let speed = Math.random() * 1.5 + 0.5;
+        for (let i = 0; i < 2; i++) {
+          cars.push({
+            x: Math.random() * canvas.width,
+            y: r,
+            speed: (r % 2 === 0 ? 1 : -1) * speed
+          });
+        }
+      }
+    }
+
+    function spawnLogs() {
+      logs = [];
+      for (let r = 0; r < 2; r++) {
+        let speed = Math.random() * 1 + 0.5;
+        for (let i = 0; i < 2; i++) {
+          logs.push({
+            x: Math.random() * canvas.width,
+            y: r,
+            speed: (r % 2 === 0 ? 1 : -1) * speed
+          });
+        }
+      }
+    }
+
+    function drawCars() {
+      ctx.fillStyle = 'red';
+      cars.forEach(car => {
+        ctx.fillRect(car.x, car.y * tileSize + 10, tileSize, tileSize - 20);
+      });
+    }
+
+    function drawLogs() {
+      ctx.fillStyle = '#8B4513';
+      logs.forEach(log => {
+        ctx.fillRect(log.x, log.y * tileSize + 10, tileSize * 2, tileSize - 20);
+      });
+    }
+
+    function updateCars() {
+      cars.forEach(car => {
+        car.x += car.speed * 2;
+        if (car.x < -tileSize) car.x = canvas.width;
+        if (car.x > canvas.width) car.x = -tileSize;
+      });
+    }
+
+    function updateLogs() {
+      logs.forEach(log => {
+        log.x += log.speed * 2;
+        if (log.x < -tileSize * 2) log.x = canvas.width;
+        if (log.x > canvas.width) log.x = -tileSize * 2;
+      });
+    }
+
+    function showGameOver() {
+      showGameOverOverlay = true;
+      setTimeout(() => {
+        reset();
+        showGameOverOverlay = false;
+      }, 2000);
+    }
+
+    function checkCollision() {
+      for (let car of cars) {
+        if (car.y === frog.y && Math.abs(car.x - frog.x * tileSize) < tileSize * 0.7) {
+          showGameOver();
+          return;
+        }
+      }
+
+      if (frog.y < 2) {
+        let onLog = false;
+        for (let log of logs) {
+          if (log.y === frog.y && frog.x * tileSize + tileSize / 2 >= log.x && frog.x * tileSize + tileSize / 2 <= log.x + tileSize * 2) {
+            onLog = true;
+            frog.x += log.speed / tileSize;
+          }
+        }
+        if (!onLog) {
+          showGameOver();
+          return;
+        }
+      }
+
+      if (frog.x < 0 || frog.x >= cols) {
+        showGameOver();
+      }
+    }
+
+    function reset() {
+      frog = { x: 4, y: 9 };
+      score = 0;
+      scoreEl.textContent = score;
+      spawnCars();
+      spawnLogs();
+    }
+
+    function gameLoop() {
+      drawBoard();
+      drawCars();
+      drawLogs();
+      drawFrog();
+      updateCars();
+      updateLogs();
+      checkCollision();
+
+      if (showGameOverOverlay) {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = 'white';
+        ctx.font = '48px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('Game Over', canvas.width / 2, canvas.height / 2);
+      }
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    document.addEventListener('keydown', e => {
+      if (showGameOverOverlay) return;
+
+      if (e.key === 'ArrowUp' && frog.y > 0) frog.y--;
+      if (e.key === 'ArrowDown' && frog.y < rows - 1) frog.y++;
+      if (e.key === 'ArrowLeft' && frog.x > 0) frog.x--;
+      if (e.key === 'ArrowRight' && frog.x < cols - 1) frog.x++;
+
+      if (frog.y === 0) {
+        score++;
+        if (score > highScore) {
+          highScore = score;
+          localStorage.setItem('froggerHighScore', highScore);
+          highScoreEl.textContent = highScore;
+        }
+        scoreEl.textContent = score;
+        frog = { x: 4, y: 9 };
+      }
+    });
+
+    spawnCars();
+    spawnLogs();
+    gameLoop();
+  </script>
+
+  <p>Does this frogger game got you thinking about the Holy War for some reason? Me too. Take a look at <a href="from_scratch.html">my other page!</a></p>
+</body>
+</html>
